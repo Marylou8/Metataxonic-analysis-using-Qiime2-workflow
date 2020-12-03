@@ -1,0 +1,130 @@
+QIIME2
+
+#ACTIVATE
+conda activate qiime2-2020.8
+
+#DEACTIVATE
+conda deactivate
+
+#AUTOCOMPLETE
+source tab-qiime
+
+#IMPORT SEQUENCES
+# In the folder only have to be the 2 files of the sequences of each sample in .fastq or .fastq.qz (compressed)
+
+qiime tools import --type 'SampleData [PairedEndSequencesWithQuality]' --input-path BAC_16S / --input-format CasavaOneEightSingleLanePerSampleDirFmt --output-path demux-paired.qza
+
+qiime demux summarize --i-data demux-paired.qza --o-visualization demux-paired.qzv
+
+# DADA2
+#Based on the demultiplexing results I selected a truncation length of 270 for the forward read and 250 for the reverse reads.
+qiime dada2 denoise-paired --i-demultiplexed-seqs demux-paired.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --output-dir OUTPUT_270_250
+
+qiime metadata tabulate --m-input-file stats-dada2.qza --o-visualization stats-dada2.qzv
+qiime tools view stats-dada2.qzv
+#It appears that in most samples about 30-40% of the reads were retained in the filtering step of dada2.
+
+#VIEW THE RESULTS OF DADA2
+qiime feature-table summarize --i-table /home/ctich/CTICH/WILMA/DEMUX/output2/table.qza --o-visualization /home/ctich/CTICH/WILMA/DEMUX/output2/table-dada2.qzv
+
+qiime feature-table tabulate-seqs --i-data /home/ctich/CTICH/WILMA/DEMUX/output2/representative_sequences.qza --o-visualization / home / ctich / CTICH / WILMA / DEMUX / output2 / rep-seq- dada2.qzv
+
+#DATA BASE CREATION
+
+#UNITE DATA BASE VERSION CITATION (v8.2 2020): Abarenkov, Kessy; Zirk, Allan; Piirmann, Timo; Pöhönen, Raivo; Ivanov, Filipp; Nilsson, R. Henrik; Kõljalg, Urmas (2020): UNITE QIIME release for Fungi 2. UNITE Community. 10.15156 / BIO / 786387
+
+#CITATION (V8.0 2019): UNITE Community (2019): UNITE QIIME release for Fungi 2. UNITE Community. 10.15156 / BIO / 786349
+
+qiime tools import --type FeatureData[Taxonomy] --input-path sh_taxonomy_qiime_ver8_97_02.02.2019.txt --input-format HeaderlessTSVTaxonomyFormat --output-path sh_tax_97.qza
+
+qiime tools import --type FeatureData[Sequence] --input-path sh_refs_qiime_ver8_97_02.02.2019.fasta --output-path sh_refs_97.qza
+
+qiime feature-classifier fit-classifier-naive-bayes --i-reference-reads sh_refs_97.qza --i-reference-taxonomy sh_tax_97.qza --o-classifier unite_v8.0_97.qza
+
+qiime feature-classifier classify-sklearn --i-classifier /home/ctich/MITES/DATA_BASES/UNITE/unite_v8.0_97.qza --i-reads representative_sequences.qza --o-classification tax_unite_v8_97.qza
+
+#FILTERING
+
+#Filtering  mitochondria and chloroplast from the table and sequences
+
+qiime taxa filter-table --i-table table.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-table table_nomitclo.qza
+
+qiime taxa filter-seqs --i-sequences representative_sequences.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-sequences rep_seqs_nomitclo.qza
+
+#Filter out those features which do not sum at least 10 sequences among all samples 
+
+qiime feature-table filter-features --i-table table_nomitclo_sil.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
+
+#CREATE A BARPLOT WITH TAXONOMY RESULTS
+
+qiime taxa barplot --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --m-metadata-file metadata.tsv --o-visualization taxa_sil_10.qzv
+
+#CREATE BIOM AND TSV FILES WITH THE TAXONOMY RESULTS
+
+qiime tools export --input-path tax_sil_nomitclo.qza --output-path ./
+
+qiime tools export --input-path table_nomitclo_10.qza --output-path ./
+
+biom add-metadata -i feature-table.biom -o feature-table.biom --observation-metadata-fp taxonomy.tsv
+
+biom add-metadata -i feature-table.biom -o tax_table.biom --observation-metadata-fp taxonomy.tsv --observation-header OTUID,taxonomy,confidence
+
+biom convert -i tax_table.biom -o table_w_taxonomy.tsv --to-tsv --header-key taxonomy
+
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --p-level 2 --o-collapsed-table table-taxonomy-Phylum.qza
+
+qiime tools export --output-path table-w-taxonomy-Phylum --input-path table-taxonomy-Phylum.qza
+
+biom convert -i table-w-taxonomy-Phylum/feature-table.biom -o table-w-taxonomy-Phylum.csv --to-tsv
+
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --p-level 5 --o-collapsed-table table-taxonomy-Family.qza
+
+qiime tools export --output-path table-w-taxonomy-Family --input-path table-taxonomy-Family.qza
+
+biom convert -i table-w-taxonomy-Family/feature-table.biom -o table-w-taxonomy-Family.csv --to-tsv
+
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_nomitclo.qza --i-table table_nomitclo_10.qza --p-sampling-depth 25914 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
+
+qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/faith_pd_vector.qza --m-metadata-file metadata.tsv --o-visualization faith_pd_group_significance.qzv
+
+qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
+
+#Classification using GreenGenes
+
+qiime feature-classifier classify-sklearn --i-classifier /home/ctich/MITES/DATA_BASES/gg-13-8-99-nb-classifier.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_gg_nomitclo.qza
+
+#Core diversity metrics
+
+qiime diversity alpha-rarefaction --i-table table_nomitclo.qza --p-max-depth 25896 --p-steps 20 --o-visualization alpha_rare_gg.qzv
+
+#Phylogenetic tree
+
+qiime alignment mafft --i-sequences rep_seqs_nomitclo.qza --o-alignment alignen_rep_seqs_nomiclo.qza
+
+qiime alignment mask --i-alignment alignen_rep_seqs_nomiclo.qza --o-masked-alignment masked_alig_rep_seqs_nomitclo.qza
+
+qiime phylogeny fasttree --i-alignment masked_alig_rep_seqs_nomitclo.qza --o-tree unrooted_tree_nomitclo.qza
+
+qiime phylogeny midpoint-root --i-tree unrooted_tree_nomitclo.qza --o-rooted-tree rooted_tree_nomitclo.qza
+
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_tree_nomitclo.qza --i-table table_nomitclo.qza --p-sampling-depth 25896 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
+
+#The sampling depth is taken from the table-dada2 file: Minimum frequency 
+
+#In qiime2-2020.8 version there is a command that does all this together:
+qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep_seqs_nomitclo.qza  --output-dir PHYLO_TREE_U97
+
+qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/faith_pd_vector.qza --m-metadata-file metadata.tsv --o-visualization faith_pd_group_significance.qzv
+
+qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
+
+qiime feature-classifier classify-sklearn --i-classifier /home/ctich/CTICH/WILMA/DEMUX/gg-13-8-99-nb-classifier.qza --i-reads /home/ctich/CTICH/WILMA/DEMUX/output2/representative_sequences.qza --o-classification /home/ctich/CTICH/WILMA/DEMUX/output2/taxomony_full.qza
+
+#Classification using SILVA
+qiime feature-classifier classify-sklearn --i-classifier /home/ctich/CTICH/BASES_DATOS/silva-132-99-515-806-nb-classifier.qza --i-reads /home/ctich/CTICH/COVID_26-4-2020/ENF_CHAMPI/OUTPUT_280_260/representative_sequences.qza --p-reads-per-batch 1000 --o-classification /home/ctich/CTICH/COVID_26-4-2020/ENF_CHAMPI/OUTPUT_280_260/taxonomy_silva.qza --verbose 
+
+qiime metadata tabulate --m-input-file /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qza --o-visualization /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qzv
+
+qiime taxa barplot --i-table /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/table.qza --i-taxonomy /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qza --m-metadata-file /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/metadata.tsv.csv --o-visualization /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/+taxa-bar-plots_full.qzv
+
+qiime diversity alpha-rarefaction --i-table /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/table.qza --p-max-depth 155000 --o-visualization /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/alpha_rarefaction.qzv --m-metadata-file /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/metadata.tsv.csv --i-phylogeny /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/rooted-tree.qza

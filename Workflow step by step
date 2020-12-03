@@ -1,4 +1,4 @@
-QIIME2
+QIIME2 WORKFLOW
 
 #ACTIVATE
 conda activate qiime2-2020.8
@@ -10,38 +10,38 @@ conda deactivate
 source tab-qiime
 
 #IMPORT SEQUENCES
-# In the folder only have to be the 2 files of the sequences of each sample in .fastq or .fastq.qz (compressed)
 
+#In the folder,just the 2 sequences files (forward and reverse) of each sample must be in. The files should be in .fastq or .fastq.qz (compressed) format
 qiime tools import --type 'SampleData [PairedEndSequencesWithQuality]' --input-path BAC_16S / --input-format CasavaOneEightSingleLanePerSampleDirFmt --output-path demux-paired.qza
 
+#To visualize the results qiime2 website can be used for .qzv and .qza: https://view.qiime2.org/
 qiime demux summarize --i-data demux-paired.qza --o-visualization demux-paired.qzv
 
 # DADA2
-#Based on the demultiplexing results I selected a truncation length of 270 for the forward read and 250 for the reverse reads.
-qiime dada2 denoise-paired --i-demultiplexed-seqs demux-paired.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --output-dir OUTPUT_270_250
+#Based on the demultiplexing results select a truncation length for the forward read (for example 270) and other for the reverse reads (for example 250).
+qiime dada2 denoise-paired --i-demultiplexed-seqs demux-paired.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --output-dir OUTPUT
 
 qiime metadata tabulate --m-input-file stats-dada2.qza --o-visualization stats-dada2.qzv
 qiime tools view stats-dada2.qzv
-#It appears that in most samples about 30-40% of the reads were retained in the filtering step of dada2.
 
 #VIEW THE RESULTS OF DADA2
-qiime feature-table summarize --i-table /home/ctich/CTICH/WILMA/DEMUX/output2/table.qza --o-visualization /home/ctich/CTICH/WILMA/DEMUX/output2/table-dada2.qzv
+#DADA2 output are 3 files, table.qza, representative_sequences.qza and denoising_stats.qza. To check if the applied filters have fullfil our objetives, we must visualized the obtained results. 
+In case the results are not satisfactory, the DADA2 analysis can be repeated with other parameters until we find the ones that interest us.
+qiime feature-table summarize --i-table table.qza --o-visualization table-dada2.qzv
 
-qiime feature-table tabulate-seqs --i-data /home/ctich/CTICH/WILMA/DEMUX/output2/representative_sequences.qza --o-visualization / home / ctich / CTICH / WILMA / DEMUX / output2 / rep-seq- dada2.qzv
+qiime feature-table tabulate-seqs --i-data OUTPUT/representative_sequences.qza --o-visualization OUTPUT/rep-seq- dada2.qzv
 
-#DATA BASE CREATION
+#DATA BASE 
+#Some data base are available at Qiime2 website: https://docs.qiime2.org/2020.8/data-resources/#
+#We can create our own data base starting from 2 files: taxonomy file (.txt format) and the representative sequences file (.fasta file).
 
-#UNITE DATA BASE VERSION CITATION (v8.2 2020): Abarenkov, Kessy; Zirk, Allan; Piirmann, Timo; Pöhönen, Raivo; Ivanov, Filipp; Nilsson, R. Henrik; Kõljalg, Urmas (2020): UNITE QIIME release for Fungi 2. UNITE Community. 10.15156 / BIO / 786387
+qiime tools import --type FeatureData[Taxonomy] --input-path taxonomy.txt --input-format HeaderlessTSVTaxonomyFormat --output-path tax.qza
 
-#CITATION (V8.0 2019): UNITE Community (2019): UNITE QIIME release for Fungi 2. UNITE Community. 10.15156 / BIO / 786349
+qiime tools import --type FeatureData[Sequence] --input-path refs.fasta --output-path refs.qza
 
-qiime tools import --type FeatureData[Taxonomy] --input-path sh_taxonomy_qiime_ver8_97_02.02.2019.txt --input-format HeaderlessTSVTaxonomyFormat --output-path sh_tax_97.qza
+qiime feature-classifier fit-classifier-naive-bayes --i-reference-reads refs.qza --i-reference-taxonomy tax.qza --o-classifier database.qza
 
-qiime tools import --type FeatureData[Sequence] --input-path sh_refs_qiime_ver8_97_02.02.2019.fasta --output-path sh_refs_97.qza
-
-qiime feature-classifier fit-classifier-naive-bayes --i-reference-reads sh_refs_97.qza --i-reference-taxonomy sh_tax_97.qza --o-classifier unite_v8.0_97.qza
-
-qiime feature-classifier classify-sklearn --i-classifier /home/ctich/MITES/DATA_BASES/UNITE/unite_v8.0_97.qza --i-reads representative_sequences.qza --o-classification tax_unite_v8_97.qza
+qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads representative_sequences.qza --o-classification taxonomy.qza
 
 #FILTERING
 
@@ -51,9 +51,12 @@ qiime taxa filter-table --i-table table.qza --i-taxonomy taxonomy.qza --p-exclud
 
 qiime taxa filter-seqs --i-sequences representative_sequences.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-sequences rep_seqs_nomitclo.qza
 
+qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_nomitclo.qza
+
 #Filter out those features which do not sum at least 10 sequences among all samples 
 
-qiime feature-table filter-features --i-table table_nomitclo_sil.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
+qiime feature-table filter-features --i-table table_nomitclo.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
+
 
 #CREATE A BARPLOT WITH TAXONOMY RESULTS
 

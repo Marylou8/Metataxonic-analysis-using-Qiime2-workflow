@@ -21,7 +21,7 @@ qiime demux summarize --i-data demux-paired.qza --o-visualization demux-paired.q
 #Based on the demultiplexing results select a truncation length for the forward read (for example 270) and other for the reverse reads (for example 250).
 qiime dada2 denoise-paired --i-demultiplexed-seqs demux-paired.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --output-dir OUTPUT
 
-qiime metadata tabulate --m-input-file stats-dada2.qza --o-visualization stats-dada2.qzv
+qiime metadata tabulate --m-input-file denoising_stats.qza --o-visualization stats-dada2.qzv
 qiime tools view stats-dada2.qzv
 
 #VIEW THE RESULTS OF DADA2
@@ -31,7 +31,8 @@ qiime feature-table summarize --i-table table.qza --o-visualization table-dada2.
 
 qiime feature-table tabulate-seqs --i-data OUTPUT/representative_sequences.qza --o-visualization OUTPUT/rep-seq- dada2.qzv
 
-#DATA BASE 
+#CLASSIFICATION
+#Data base 
 #Some data base are available at Qiime2 website: https://docs.qiime2.org/2020.8/data-resources/#
 #We can create our own data base starting from 2 files: taxonomy file (.txt format) and the representative sequences file (.fasta file).
 
@@ -41,30 +42,32 @@ qiime tools import --type FeatureData[Sequence] --input-path refs.fasta --output
 
 qiime feature-classifier fit-classifier-naive-bayes --i-reference-reads refs.qza --i-reference-taxonomy tax.qza --o-classifier database.qza
 
+#Then we classify our sequences with the data base
 qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads representative_sequences.qza --o-classification taxonomy.qza
 
 #FILTERING
-
-#Filtering  mitochondria and chloroplast from the table and sequences
+#Filtering  mitochondria and chloroplast from the table and sequences:
 
 qiime taxa filter-table --i-table table.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-table table_nomitclo.qza
 
 qiime taxa filter-seqs --i-sequences representative_sequences.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-sequences rep_seqs_nomitclo.qza
 
+#And we re-classify our filtered sequences again:
 qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_nomitclo.qza
 
-#Filter out those features which do not sum at least 10 sequences among all samples 
+#We could also filter out those features which do not sum at least 10 sequences among all samples 
 
 qiime feature-table filter-features --i-table table_nomitclo.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
 
 
 #CREATE A BARPLOT WITH TAXONOMY RESULTS
 
-qiime taxa barplot --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --m-metadata-file metadata.tsv --o-visualization taxa_sil_10.qzv
+qiime taxa barplot --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --m-metadata-file metadata.tsv --o-visualization taxa_barplot.qzv
+
 
 #CREATE BIOM AND TSV FILES WITH THE TAXONOMY RESULTS
 
-qiime tools export --input-path tax_sil_nomitclo.qza --output-path ./
+qiime tools export --input-path taxonomy_nomitclo.qza --output-path ./
 
 qiime tools export --input-path table_nomitclo_10.qza --output-path ./
 

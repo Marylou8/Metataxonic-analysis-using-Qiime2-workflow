@@ -1,5 +1,8 @@
 QIIME2 WORKFLOW
 
+#INTRO: Qiime2 works with Artifacts. These are strange objects characterized by a QZA extension.
+#Artifacts are binary files containing more than just data. They include information describing the object, as well as the steps needed to obtain the data.
+
 #ACTIVATE
 conda activate qiime2-2020.8
 
@@ -11,30 +14,33 @@ source tab-qiime
 
 #IMPORT SEQUENCES
 
-#In the folder,just the 2 sequences files (forward and reverse) of each sample must be in. The files should be in .fastq or .fastq.qz (compressed) format
+#In the folder,just the 2 sequences files (forward and reverse) of each sample must be in. The files should be in .fastq or .fastq.qz (compressed) format. In the example the file name is BAC_16S
 qiime tools import --type 'SampleData [PairedEndSequencesWithQuality]' --input-path BAC_16S / --input-format CasavaOneEightSingleLanePerSampleDirFmt --output-path demux-paired.qza
 
-#To visualize the results qiime2 website can be used for .qzv and .qza: https://view.qiime2.org/
+#Most of the artifacts can be visualized by creating a QZV object. Results can also be visualize in Qiime2 website: https://view.qiime2.org/
 qiime demux summarize --i-data demux-paired.qza --o-visualization demux-paired.qzv
 
-# DADA2
-#Based on the demultiplexing results select a truncation length for the forward read (for example 270) and other for the reverse reads (for example 250).
+#DADA2
+#Based on the demultiplexing results select a truncation length for the forward read (for example 270) and other for the reverse reads (for example 250). 
 qiime dada2 denoise-paired --i-demultiplexed-seqs demux-paired.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --output-dir OUTPUT
+
+#VIEW DADA2 RESULTS
+#DADA2 creates 3 files, table.qza, representative_sequences.qza and denoising_stats.qza. To check if the applied filters have fullfil our objetives, we must visualized the obtained results. 
+#In case the results are not satisfactory, the DADA2 analysis can be repeated with other parameters until we find the ones that interest us.
 
 qiime metadata tabulate --m-input-file denoising_stats.qza --o-visualization stats-dada2.qzv
 qiime tools view stats-dada2.qzv
 
-#VIEW THE RESULTS OF DADA2
-#DADA2 output are 3 files, table.qza, representative_sequences.qza and denoising_stats.qza. To check if the applied filters have fullfil our objetives, we must visualized the obtained results. 
-In case the results are not satisfactory, the DADA2 analysis can be repeated with other parameters until we find the ones that interest us.
 qiime feature-table summarize --i-table table.qza --o-visualization table-dada2.qzv
+qiime tools view table-dada2.qzv
 
 qiime feature-table tabulate-seqs --i-data OUTPUT/representative_sequences.qza --o-visualization OUTPUT/rep-seq- dada2.qzv
+qiime tools view rep-seq- dada2.qzv
 
-#CLASSIFICATION
-#Data base 
+#TAXONOMIC ANNOTATION
+#DATA BASES
 #Some data base are available at Qiime2 website: https://docs.qiime2.org/2020.8/data-resources/#
-#We can create our own data base starting from 2 files: taxonomy file (.txt format) and the representative sequences file (.fasta file).
+#We can create our own data base starting from 2 files: taxonomy file (.txt format) and the representative sequences file (.fasta file):
 
 qiime tools import --type FeatureData[Taxonomy] --input-path taxonomy.txt --input-format HeaderlessTSVTaxonomyFormat --output-path tax.qza
 
@@ -42,7 +48,8 @@ qiime tools import --type FeatureData[Sequence] --input-path refs.fasta --output
 
 qiime feature-classifier fit-classifier-naive-bayes --i-reference-reads refs.qza --i-reference-taxonomy tax.qza --o-classifier database.qza
 
-#Then we classify our sequences with the data base
+#Then we annotate our sequences with the new data base:
+
 qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads representative_sequences.qza --o-classification taxonomy.qza
 
 #FILTERING
@@ -52,20 +59,22 @@ qiime taxa filter-table --i-table table.qza --i-taxonomy taxonomy.qza --p-exclud
 
 qiime taxa filter-seqs --i-sequences representative_sequences.qza --i-taxonomy taxonomy.qza --p-exclude mitochondria,chloroplast --o-filtered-sequences rep_seqs_nomitclo.qza
 
-#And we re-classify our filtered sequences again:
+#And we re-annotate our filtered sequences again:
+
 qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_nomitclo.qza
 
-#We could also filter out those features which do not sum at least 10 sequences among all samples 
+#We could also filter out those features which do not sum at least 10 sequences among all samples: 
 
 qiime feature-table filter-features --i-table table_nomitclo.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
 
-
-#CREATE A BARPLOT WITH TAXONOMY RESULTS
+#CREATE A BARPLOT BY RANKS AND METADATA GROUPS
+#To perform summaries, statistics, etc. we need a metadata file. This file must have the first column with the samples names, the second column and all the following contain the metadata with their own kind descriptor /categorical/numeric".
+#More information and examples of metadata files can be found in Qiime2 website: https://docs.qiime2.org/2019.10/tutorials/metadata/
 
 qiime taxa barplot --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --m-metadata-file metadata.tsv --o-visualization taxa_barplot.qzv
 
-
 #CREATE BIOM AND TSV FILES WITH THE TAXONOMY RESULTS
+#Export at Phylum level
 
 qiime tools export --input-path taxonomy_nomitclo.qza --output-path ./
 
@@ -77,60 +86,52 @@ biom add-metadata -i feature-table.biom -o tax_table.biom --observation-metadata
 
 biom convert -i tax_table.biom -o table_w_taxonomy.tsv --to-tsv --header-key taxonomy
 
-qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --p-level 2 --o-collapsed-table table-taxonomy-Phylum.qza
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_table.biom --p-level 2 --o-collapsed-table table-taxonomy-Phylum.qza
 
 qiime tools export --output-path table-w-taxonomy-Phylum --input-path table-taxonomy-Phylum.qza
 
 biom convert -i table-w-taxonomy-Phylum/feature-table.biom -o table-w-taxonomy-Phylum.csv --to-tsv
 
-qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_sil_nomitclo.qza --p-level 5 --o-collapsed-table table-taxonomy-Family.qza
+#Export at Family level
+
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_table.biom --p-level 5 --o-collapsed-table table-taxonomy-Family.qza
 
 qiime tools export --output-path table-w-taxonomy-Family --input-path table-taxonomy-Family.qza
 
 biom convert -i table-w-taxonomy-Family/feature-table.biom -o table-w-taxonomy-Family.csv --to-tsv
 
-qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_nomitclo.qza --i-table table_nomitclo_10.qza --p-sampling-depth 25914 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
 
-qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/faith_pd_vector.qza --m-metadata-file metadata.tsv --o-visualization faith_pd_group_significance.qzv
-
-qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
-
-#Classification using GreenGenes
-
-qiime feature-classifier classify-sklearn --i-classifier /home/ctich/MITES/DATA_BASES/gg-13-8-99-nb-classifier.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_gg_nomitclo.qza
-
-#Core diversity metrics
-
-qiime diversity alpha-rarefaction --i-table table_nomitclo.qza --p-max-depth 25896 --p-steps 20 --o-visualization alpha_rare_gg.qzv
-
-#Phylogenetic tree
+#ALIGNMENT AND PHYLOGENETIC RECONSTRUCTION
+#Alignment:
 
 qiime alignment mafft --i-sequences rep_seqs_nomitclo.qza --o-alignment alignen_rep_seqs_nomiclo.qza
 
 qiime alignment mask --i-alignment alignen_rep_seqs_nomiclo.qza --o-masked-alignment masked_alig_rep_seqs_nomitclo.qza
 
+#Phylogenetic tree:
+
 qiime phylogeny fasttree --i-alignment masked_alig_rep_seqs_nomitclo.qza --o-tree unrooted_tree_nomitclo.qza
 
 qiime phylogeny midpoint-root --i-tree unrooted_tree_nomitclo.qza --o-rooted-tree rooted_tree_nomitclo.qza
 
-qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_tree_nomitclo.qza --i-table table_nomitclo.qza --p-sampling-depth 25896 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
-
-#The sampling depth is taken from the table-dada2 file: Minimum frequency 
-
 #In qiime2-2020.8 version there is a command that does all this together:
-qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep_seqs_nomitclo.qza  --output-dir PHYLO_TREE_U97
+qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep_seqs_nomitclo.qza  --output-dir PHYLO_TREE
+
+#DIVERSITY
+#Applies a collection of diversity metrics (both phylogenetic and non- phylogenetic) to a feature table.
+#The parameter "sampling-depth" is taken from the table-dada2 file: Minimum frequency 
+
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_tree_nomitclo.qza --i-table table_nomitclo_10.qza --p-sampling-depth 25000 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
+
+#Alpha rarefaction
+
+qiime diversity alpha-rarefaction --i-table table_nomitclo_10.qza --p-max-depth 25000 --p-steps 20 --o-visualization alpha_rare.qzv
+
+#Calculate group significance
+#From the results in "core-metrics-phylogenetic" we can visualized different diversity methods.
+#Alpha diversity methods: Shannon’s diversity index, Observed OTUs, Faith’s Phylogenetic Diversity and Evenness.
+#Beta diversity methods: Jaccard distance, Bray-Curtis distance, unweighted UniFrac distance and weighted UniFrac distance.
 
 qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/faith_pd_vector.qza --m-metadata-file metadata.tsv --o-visualization faith_pd_group_significance.qzv
 
 qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
-
-qiime feature-classifier classify-sklearn --i-classifier /home/ctich/CTICH/WILMA/DEMUX/gg-13-8-99-nb-classifier.qza --i-reads /home/ctich/CTICH/WILMA/DEMUX/output2/representative_sequences.qza --o-classification /home/ctich/CTICH/WILMA/DEMUX/output2/taxomony_full.qza
-
-#Classification using SILVA
-qiime feature-classifier classify-sklearn --i-classifier /home/ctich/CTICH/BASES_DATOS/silva-132-99-515-806-nb-classifier.qza --i-reads /home/ctich/CTICH/COVID_26-4-2020/ENF_CHAMPI/OUTPUT_280_260/representative_sequences.qza --p-reads-per-batch 1000 --o-classification /home/ctich/CTICH/COVID_26-4-2020/ENF_CHAMPI/OUTPUT_280_260/taxonomy_silva.qza --verbose 
-
-qiime metadata tabulate --m-input-file /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qza --o-visualization /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qzv
-
-qiime taxa barplot --i-table /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/table.qza --i-taxonomy /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/taxonomy_full.qza --m-metadata-file /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/metadata.tsv.csv --o-visualization /home/ctich/CTICH/WILMA/COBERTURAS/2_FASTQ_RAW/output/+taxa-bar-plots_full.qzv
-
-qiime diversity alpha-rarefaction --i-table /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/table.qza --p-max-depth 155000 --o-visualization /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/alpha_rarefaction.qzv --m-metadata-file /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/metadata.tsv.csv --i-phylogeny /home/ctich/CTICH/GOOFY/CASING/ANALISIS_POR_SALA/OUTPUT/rooted-tree.qza

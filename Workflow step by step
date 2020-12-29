@@ -133,5 +133,8 @@ qiime diversity alpha-rarefaction --i-table table_nomitclo_10.qza --p-max-depth 
 #Beta diversity methods: Jaccard distance, Bray-Curtis distance, unweighted UniFrac distance and weighted UniFrac distance.
 
 qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/faith_pd_vector.qza --m-metadata-file metadata.tsv --o-visualization faith_pd_group_significance.qzv
+qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/evenness_vector.qza --m-metadata-file metadata.tsv --o-visualization evenness_group_significance.qzv
+qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylogenetic/shannon_vector.qza --m-metadata-file metadata.tsv --o-visualization shannon_group_significance.qzv
 
 qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
+qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/bray_curtis_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization bray_curtis_significance.qzv --p-pairwise

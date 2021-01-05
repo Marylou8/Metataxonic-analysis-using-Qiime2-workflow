@@ -121,7 +121,7 @@ qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep_seqs_nomitclo.qza
 #Applies a collection of diversity metrics (both phylogenetic and non- phylogenetic) to a feature table.
 #The parameter "sampling-depth" is taken from the table-dada2 file: Minimum frequency 
 
-qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_tree_nomitclo.qza --i-table table_nomitclo_10.qza --p-sampling-depth 25000 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted_tree_nomitclo.qza --i-table table_nomitclo_10.qza --p-sampling-depth 20000 --m-metadata-file metadata.tsv --output-dir core_metrics_phylogenetic
 
 #Alpha rarefaction
 
@@ -138,3 +138,11 @@ qiime diversity alpha-group-significance --i-alpha-diversity core_metrics_phylog
 
 qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/unweighted_unifrac_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization unweighted_unifranc_group_significance.qzv
 qiime diversity beta-group-significance --i-distance-matrix core_metrics_phylogenetic/bray_curtis_distance_matrix.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization bray_curtis_significance.qzv --p-pairwise
+
+#ANCOM: Analysis of composition of microbiomes
+#We can choose the taxonomy level with the parameter "p-level". For example genus level=6
+
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 6 --o-collapsed-table table_L6.qza
+qiime composition add-pseudocount --i-table table_L6.qza --o-composition-table comp_table_L6.qza
+qiime composition ancom --i-table comp_table_L6.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization ancom_L6.qzv
+

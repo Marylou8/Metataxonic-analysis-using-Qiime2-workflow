@@ -146,3 +146,19 @@ qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitc
 qiime composition add-pseudocount --i-table table_L6.qza --o-composition-table comp_table_L6.qza
 qiime composition ancom --i-table comp_table_L6.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization ancom_L6.qzv
 
+#PLOTTING: With the artifacts generated we can visualized our results at the qiime2 view webpage or we can use for example other tools like RStudio. 
+#To create a heatmap in RStudio we can use two libraries ("tidyverse" and "qiime2R") with which we use directly the artifacts created with qiime2 (.QZA). 
+#In this example we created a heatmap at Genus level but any level can be done.
+
+library(tidyverse)
+library(qiime2R)
+
+metadata<-read_q2metadata("metadata.tsv")
+SVs<-read_qza("table_nomitclo_10.qza")$data
+taxonomy<-read_qza("taxonomy_nomitclo.qza")$data %>% parse_taxonomy()
+
+taxasums<-summarize_taxa(SVs, taxonomy)$Genus
+
+taxa_heatmap(taxasums, metadata, "body-site")
+
+ggsave("heatmap.pdf", height=4, width=8, device="pdf") # save a PDF 4 inches by 8 inches

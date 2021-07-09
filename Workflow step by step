@@ -34,7 +34,7 @@ qiime tools view stats-dada2.qzv
 qiime feature-table summarize --i-table table.qza --o-visualization table-dada2.qzv
 qiime tools view table-dada2.qzv
 
-qiime feature-table tabulate-seqs --i-data OUTPUT/representative_sequences.qza --o-visualization OUTPUT/rep-seq- dada2.qzv
+qiime feature-table tabulate-seqs --i-data representative_sequences.qza --o-visualization OUTPUT/rep-seq- dada2.qzv
 qiime tools view rep-seq- dada2.qzv
 
 #TAXONOMIC ANNOTATION
@@ -63,9 +63,10 @@ qiime taxa filter-seqs --i-sequences representative_sequences.qza --i-taxonomy t
 
 qiime feature-classifier classify-sklearn --i-classifier database.qza --i-reads rep_seqs_nomitclo.qza --o-classification taxonomy_nomitclo.qza
 
-#We could also filter out those features which do not sum at least 10 sequences among all samples: 
+#We could also filter out those features which do not sum at least 10 sequences among all samples and those that only appear in one sample: 
 
-qiime feature-table filter-features --i-table table_nomitclo.qza --p-min-frequency 10 --o-filtered-table table_nomitclo_10.qza
+qiime feature-table filter-features --i-table table_nomitclo.qza --p-min-frequency 10 --p-min-samples 2 --o-filtered-table table_nomitclo_10.qza
+
 
 #CREATE A BARPLOT BY RANKS AND METADATA GROUPS
 #To perform summaries, statistics, etc. we need a metadata file. This file must have the first column with the samples names, the second column and all the following contain the metadata with their own kind descriptor /categorical/numeric".
@@ -142,7 +143,6 @@ qiime diversity beta-group-significance --i-distance-matrix core_metrics_phyloge
 #ANCOM: Analysis of composition of microbiomes
 #We can choose the taxonomy level with the parameter "p-level". For example genus level=6
 
-qiime feature-table filter-features --i-table table_nomitclo_10.qza --p-min-samples 2 --o-filtered-table filt_table.qza
 qiime taxa collapse --i-table filt_table.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 6 --o-collapsed-table table_L6.qza
 qiime composition add-pseudocount --i-table table_L6.qza --o-composition-table comp_table_L6.qza
 qiime composition ancom --i-table comp_table_L6.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization ancom_L6.qzv

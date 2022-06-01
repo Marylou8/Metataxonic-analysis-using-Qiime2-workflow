@@ -81,13 +81,11 @@ qiime tools export --input-path taxonomy_nomitclo.qza --output-path ./
 
 qiime tools export --input-path table_nomitclo_10.qza --output-path ./
 
-biom add-metadata -i feature-table.biom -o feature-table.biom --observation-metadata-fp taxonomy.tsv
-
 biom add-metadata -i feature-table.biom -o tax_table.biom --observation-metadata-fp taxonomy.tsv --observation-header OTUID,taxonomy,confidence
 
 biom convert -i tax_table.biom -o table_w_taxonomy.tsv --to-tsv --header-key taxonomy
 
-qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_table.biom --p-level 2 --o-collapsed-table table-taxonomy-Phylum.qza
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 2 --o-collapsed-table table-taxonomy-Phylum.qza
 
 qiime tools export --output-path table-w-taxonomy-Phylum --input-path table-taxonomy-Phylum.qza
 

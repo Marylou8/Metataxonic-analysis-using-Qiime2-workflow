@@ -141,7 +141,7 @@ qiime diversity beta-group-significance --i-distance-matrix core_metrics_phyloge
 #ANCOM: Analysis of composition of microbiomes
 #We can choose the taxonomy level with the parameter "p-level". For example genus level=6
 
-qiime taxa collapse --i-table filt_table.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 6 --o-collapsed-table table_L6.qza
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 6 --o-collapsed-table table_L6.qza
 qiime composition add-pseudocount --i-table table_L6.qza --o-composition-table comp_table_L6.qza
 qiime composition ancom --i-table comp_table_L6.qza --m-metadata-file metadata.tsv --m-metadata-column Group --o-visualization ancom_L6.qzv
 

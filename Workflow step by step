@@ -93,7 +93,7 @@ biom convert -i table-w-taxonomy-Phylum/feature-table.biom -o table-w-taxonomy-P
 
 #Export at Family level
 
-qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy tax_table.biom --p-level 5 --o-collapsed-table table-taxonomy-Family.qza
+qiime taxa collapse --i-table table_nomitclo_10.qza --i-taxonomy taxonomy_nomitclo.qza --p-level 5 --o-collapsed-table table-taxonomy-Family.qza
 
 qiime tools export --output-path table-w-taxonomy-Family --input-path table-taxonomy-Family.qza
 
